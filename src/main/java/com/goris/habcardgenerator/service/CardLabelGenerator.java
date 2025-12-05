@@ -68,7 +68,7 @@ public class CardLabelGenerator {
 
             for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
                 XWPFTableRow row = table.getRows().get(rowIndex);
-                int celoklsInRow = row.getTableCells().size();
+                int cellsInRow = row.getTableCells().size();
                 log.info("  Row {}: {} cells", rowIndex + 1, cellsInRow);
             }
 
