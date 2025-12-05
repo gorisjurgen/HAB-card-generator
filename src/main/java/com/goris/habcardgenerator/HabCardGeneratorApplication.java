@@ -21,10 +21,10 @@ public class HabCardGeneratorApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Create test data with custom labels
+        // Create test data with 100 custom labels
         List<String> labelTexts = new ArrayList<>();
-        for (int i = 1; i <= 24; i++) {
-            labelTexts.add(String.format("Custom Label %d", i));
+        for (int i = 1; i <= 100; i++) {
+            labelTexts.add(String.format("Label %d", i));
         }
 
         cardLabelGenerator.generateCardLabels(labelTexts);
