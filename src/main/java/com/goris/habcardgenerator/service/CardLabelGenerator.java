@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,9 @@ public class CardLabelGenerator {
     private static final String TEMPLATE_PATH = "Avery_64x34-R.docx";
     private static final DateTimeFormatter FILENAME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final int LABELS_PER_PAGE = 24;
+
+    @Value("${label.background.color:FFFFFF}")
+    private String backgroundColor;
 
     private List<XWPFTable> allTables = new ArrayList<>();
 
@@ -51,6 +55,9 @@ public class CardLabelGenerator {
 
             populateLabels(labelTexts);
 
+            // Remove any trailing paragraphs after the last table to avoid empty pages
+            removeTrailingContent(document);
+
             String outputPath = saveDocument(document);
 
             log.info("Card labels generated successfully at: {}", outputPath);
@@ -65,9 +72,32 @@ public class CardLabelGenerator {
         log.info("Loading template: {}", TEMPLATE_PATH);
         ClassPathResource resource = new ClassPathResource(TEMPLATE_PATH);
 
+        XWPFDocument document;
         try (InputStream inputStream = resource.getInputStream()) {
-            return new XWPFDocument(inputStream);
+            document = new XWPFDocument(inputStream);
         }
+
+        // Remove any trailing content from the template itself
+        List<IBodyElement> bodyElements = document.getBodyElements();
+        log.info("Template has {} body elements", bodyElements.size());
+
+        // Find first table and remove everything after it
+        int firstTableIndex = -1;
+        for (int i = 0; i < bodyElements.size(); i++) {
+            if (bodyElements.get(i).getElementType() == BodyElementType.TABLE) {
+                firstTableIndex = i;
+                break;
+            }
+        }
+
+        if (firstTableIndex != -1 && firstTableIndex < bodyElements.size() - 1) {
+            for (int i = bodyElements.size() - 1; i > firstTableIndex; i--) {
+                document.removeBodyElement(i);
+                log.info("Removed trailing element from template at index {}", i);
+            }
+        }
+
+        return document;
     }
 
     private void analyzeTemplate(XWPFDocument document) {
@@ -215,6 +245,11 @@ public class CardLabelGenerator {
                     // Use text from input list if available, otherwise leave empty
                     String labelText = labelIndex < labelTexts.size() ? labelTexts.get(labelIndex) : "";
 
+                    // Apply background color only if the label has text
+                    if (!labelText.isEmpty()) {
+                        applyBackgroundColor(cell);
+                    }
+
                     // Clear existing content
                     while (cell.getParagraphs().size() > 0) {
                         cell.removeParagraph(0);
@@ -234,6 +269,54 @@ public class CardLabelGenerator {
         }
 
         log.info("=== Successfully populated {} labels across {} pages ===", Math.min(labelIndex, labelTexts.size()), tableCount);
+    }
+
+    private void applyBackgroundColor(XWPFTableCell cell) {
+        // Ensure cell properties exist
+        if (cell.getCTTc().getTcPr() == null) {
+            cell.getCTTc().addNewTcPr();
+        }
+
+        // Add shading (background color)
+        CTShd shd = cell.getCTTc().getTcPr().getShd();
+        if (shd == null) {
+            shd = cell.getCTTc().getTcPr().addNewShd();
+        }
+
+        // Set the background color using the hex value from properties
+        shd.setFill(backgroundColor);
+        shd.setVal(STShd.CLEAR);
+    }
+
+    private void removeTrailingContent(XWPFDocument document) {
+        // Get all body elements
+        List<IBodyElement> bodyElements = document.getBodyElements();
+
+        log.info("Total body elements before cleanup: {}", bodyElements.size());
+
+        // Find the index of the last table
+        int lastTableIndex = -1;
+        for (int i = bodyElements.size() - 1; i >= 0; i--) {
+            if (bodyElements.get(i).getElementType() == BodyElementType.TABLE) {
+                lastTableIndex = i;
+                break;
+            }
+        }
+
+        // Remove ALL elements after the last table (including page breaks)
+        if (lastTableIndex != -1 && lastTableIndex < bodyElements.size() - 1) {
+            int elementsToRemove = bodyElements.size() - 1 - lastTableIndex;
+            log.info("Found last table at index {}, removing {} trailing elements", lastTableIndex, elementsToRemove);
+
+            // Remove elements from the end backwards to avoid index issues
+            for (int i = bodyElements.size() - 1; i > lastTableIndex; i--) {
+                IBodyElement element = bodyElements.get(i);
+                document.removeBodyElement(i);
+                log.info("Removed trailing element at index {} (type: {})", i, element.getElementType());
+            }
+        }
+
+        log.info("Total body elements after cleanup: {}", document.getBodyElements().size());
     }
 
     private String saveDocument(XWPFDocument document) throws IOException {
