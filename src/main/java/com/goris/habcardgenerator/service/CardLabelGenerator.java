@@ -15,23 +15,26 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 @Slf4j
 public class CardLabelGenerator {
 
     private static final String TEMPLATE_PATH = "Avery_64x34-R.docx";
-    private static final String OUTPUT_FILENAME = "generated_labels.docx";
+    private static final DateTimeFormatter FILENAME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
-    public void generateCardLabels() {
+    public void generateCardLabels(List<String> labelTexts) {
         try {
-            log.info("Starting card label generation...");
+            log.info("Starting card label generation with {} labels...", labelTexts.size());
 
             XWPFDocument document = loadTemplate();
 
             analyzeTemplate(document);
 
-            populateLabels(document);
+            populateLabels(document, labelTexts);
 
             String outputPath = saveDocument(document);
 
@@ -85,11 +88,11 @@ public class CardLabelGenerator {
         log.info("=== Total labels in template: {} ===", totalLabels);
     }
 
-    private void populateLabels(XWPFDocument document) {
+    private void populateLabels(XWPFDocument document, List<String> labelTexts) {
         log.info("=== Populating Labels ===");
 
         XWPFTable table = document.getTables().get(0);
-        int labelNumber = 1;
+        int labelIndex = 0;
 
         // Iterate through 8 rows and use cells 0, 2, 4 (skipping 1 and 3 which are spacing)
         for (int rowIndex = 0; rowIndex < 8; rowIndex++) {
@@ -100,7 +103,9 @@ public class CardLabelGenerator {
 
             for (int cellIndex : labelCellIndices) {
                 XWPFTableCell cell = row.getCell(cellIndex);
-                String labelText = String.format("label-%02d", labelNumber);
+
+                // Use text from input list if available, otherwise leave empty
+                String labelText = labelIndex < labelTexts.size() ? labelTexts.get(labelIndex) : "";
 
                 // Clear existing content
                 cell.removeParagraph(0);
@@ -111,16 +116,18 @@ public class CardLabelGenerator {
                 run.setText(labelText);
 
                 log.info("Added text '{}' to cell [{}, {}]", labelText, rowIndex, cellIndex);
-                labelNumber++;
+                labelIndex++;
             }
         }
 
-        log.info("=== Successfully populated {} labels ===", labelNumber - 1);
+        log.info("=== Successfully populated {} labels ===", labelIndex);
     }
 
     private String saveDocument(XWPFDocument document) throws IOException {
         String userHome = System.getProperty("user.home");
-        Path downloadsPath = Paths.get(userHome, "Downloads", OUTPUT_FILENAME);
+        String timestamp = LocalDateTime.now().format(FILENAME_FORMATTER);
+        String filename = String.format("generated_labels_%s.docx", timestamp);
+        Path downloadsPath = Paths.get(userHome, "Downloads", filename);
 
         log.info("Saving document to: {}", downloadsPath);
 
