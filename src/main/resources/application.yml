@@ -10,8 +10,8 @@ label:
 # CardData Excel column mappings (column names)
 card:
   data:
-    splitOddEven: false
-    useNewLine: false
+    splitOddEven: true
+    useNewLine: true
     columns:
       memberId: id
       name: 'naam'

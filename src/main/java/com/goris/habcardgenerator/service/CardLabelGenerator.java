@@ -1,6 +1,8 @@
 package com.goris.habcardgenerator.service;
 
+import com.goris.habcardgenerator.config.CardDataConfig;
 import com.goris.habcardgenerator.model.CardData;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
@@ -21,15 +23,18 @@ import java.util.List;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class CardLabelGenerator {
 
     private static final String TEMPLATE_PATH = "Avery_64x34-R.docx";
     private static final DateTimeFormatter FILENAME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final int LABELS_PER_PAGE = 24;
+    private static final int LABELS_PER_ROW = 3;
 
     @Value("${label.background.color:FFFFFF}")
     private String backgroundColor;
 
+    private final CardDataConfig cardDataConfig;
     private List<XWPFTable> allTables = new ArrayList<>();
 
     public void generateCardLabels(List<CardData> cardDataList) {
@@ -45,16 +50,19 @@ public class CardLabelGenerator {
             // Store the first table
             allTables.add(document.getTables().get(0));
 
+            // Add empty labels when street changes if useNewLine is enabled
+            List<CardData> adjustedCardDataList = addEmptyLabelsForStreetChanges(cardDataList);
+
             // Calculate how many pages we need
-            int pagesNeeded = (int) Math.ceil((double) cardDataList.size() / LABELS_PER_PAGE);
-            log.info("Pages needed for {} labels: {}", cardDataList.size(), pagesNeeded);
+            int pagesNeeded = (int) Math.ceil((double) adjustedCardDataList.size() / LABELS_PER_PAGE);
+            log.info("Pages needed for {} labels: {}", adjustedCardDataList.size(), pagesNeeded);
 
             // Duplicate pages if we need more than one
             if (pagesNeeded > 1) {
                 duplicatePages(document, pagesNeeded);
             }
 
-            populateLabels(cardDataList);
+            populateLabels(adjustedCardDataList);
 
             // Remove any trailing paragraphs after the last table to avoid empty pages
             removeTrailingContent(document);
@@ -132,6 +140,80 @@ public class CardLabelGenerator {
         }
 
         log.info("=== Total labels in template: {} ===", totalLabels);
+    }
+
+    private List<CardData> addEmptyLabelsForStreetChanges(List<CardData> cardDataList) {
+        if (!cardDataConfig.isUseNewLine()) {
+            log.info("useNewLine is false, no street-based row splitting needed");
+            return cardDataList;
+        }
+
+        boolean splitOddEven = cardDataConfig.isSplitOddEven();
+        log.info("=== Adding empty labels for street changes (splitOddEven: {}) ===", splitOddEven);
+
+        List<CardData> adjustedList = new ArrayList<>();
+        String previousStreet = null;
+        Boolean previousWasEven = null;
+        int labelsInCurrentRow = 0;
+
+        for (CardData cardData : cardDataList) {
+            String currentStreet = cardData.street();
+            boolean currentIsEven = isEvenStreetNumber(cardData.streetNumber());
+
+            boolean needsNewRow = false;
+            String reason = "";
+
+            // Check if street has changed
+            if (previousStreet != null && !previousStreet.equals(currentStreet)) {
+                needsNewRow = true;
+                reason = String.format("Street changed from '%s' to '%s'", previousStreet, currentStreet);
+            }
+            // Check if switching from even to odd (only if splitOddEven is enabled and on same street)
+            else if (splitOddEven && previousWasEven != null && previousWasEven && !currentIsEven
+                     && previousStreet != null && previousStreet.equals(currentStreet)) {
+                needsNewRow = true;
+                reason = "Switching from even to odd numbers";
+            }
+
+            if (needsNewRow) {
+                // Add empty labels to complete the current row
+                int emptyLabelsNeeded = (LABELS_PER_ROW - labelsInCurrentRow % LABELS_PER_ROW) % LABELS_PER_ROW;
+
+                if (emptyLabelsNeeded > 0) {
+                    log.info("{}, adding {} empty labels to complete row", reason, emptyLabelsNeeded);
+
+                    for (int i = 0; i < emptyLabelsNeeded; i++) {
+                        adjustedList.add(null); // null represents an empty label
+                    }
+                    labelsInCurrentRow = 0;
+                }
+            }
+
+            adjustedList.add(cardData);
+            labelsInCurrentRow++;
+            previousStreet = currentStreet;
+            previousWasEven = currentIsEven;
+        }
+
+        log.info("Original list size: {}, Adjusted list size: {}", cardDataList.size(), adjustedList.size());
+        return adjustedList;
+    }
+
+    private boolean isEvenStreetNumber(String streetNumber) {
+        if (streetNumber == null || streetNumber.isEmpty()) {
+            return false;
+        }
+        try {
+            // Extract numeric part from street number
+            String numericPart = streetNumber.replaceAll("[^0-9]", "");
+            if (numericPart.isEmpty()) {
+                return false;
+            }
+            int number = Integer.parseInt(numericPart);
+            return number % 2 == 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     private void duplicatePages(XWPFDocument document, int totalPages) {
