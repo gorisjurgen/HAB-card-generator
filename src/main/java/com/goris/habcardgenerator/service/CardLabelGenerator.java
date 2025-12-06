@@ -341,14 +341,17 @@ public class CardLabelGenerator {
 
                     // Add card data to cell
                     if (cardData != null) {
+                        // Calculate font size based on name length (same logic as name)
+                        int nameFontSize = cardData.name().length() > 25 ? 12 : 14;
+
                         // Line 1: Year (bold) - Member ID
                         XWPFParagraph paragraph1 = cell.addParagraph();
 
-                        // Year part (bold)
+                        // Year part (bold, same size as name)
                         XWPFRun yearRun = paragraph1.createRun();
                         yearRun.setText(cardDataConfig.getYear());
                         yearRun.setBold(true);
-                        yearRun.setFontSize(10);
+                        yearRun.setFontSize(nameFontSize);
 
                         // Separator
                         XWPFRun separatorRun = paragraph1.createRun();
@@ -365,8 +368,6 @@ public class CardLabelGenerator {
                         XWPFRun run2 = paragraph2.createRun();
                         run2.setText(cardData.name());
                         run2.setBold(true);
-                        // If name is longer than 25 characters, use same font size as street
-                        int nameFontSize = cardData.name().length() > 25 ? 12 : 14;
                         run2.setFontSize(nameFontSize);
 
                         // Line 3: Street and street number (medium font)

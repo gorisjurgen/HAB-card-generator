@@ -13,8 +13,8 @@ card:
     year: "2025"
     splitOddEven: true
     useNewLine: true
-    inputDirectory: "./"
-    outputDirectory: "./labels"
+    inputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
+    outputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     columns:
       memberId: id
       name: 'naam'
