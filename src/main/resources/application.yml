@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: HAB-card-generator
+
+# Label background color (hex value without #, e.g., FFFF00 for yellow)
+label:
+  background:
+    color: 9fd6e0
+
+# CardData Excel column mappings (column names)
+card:
+  data:
+    splitOddEven: true
+    useNewLine: false
+    columns:
+      memberId: id
+      name: Name
+      street: 'street '
+      streetNumber: street number
