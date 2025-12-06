@@ -341,8 +341,21 @@ public class CardLabelGenerator {
 
                     // Add card data to cell
                     if (cardData != null) {
-                        // Line 1: Member ID
+                        // Line 1: Year (bold) - Member ID
                         XWPFParagraph paragraph1 = cell.addParagraph();
+
+                        // Year part (bold)
+                        XWPFRun yearRun = paragraph1.createRun();
+                        yearRun.setText(cardDataConfig.getYear());
+                        yearRun.setBold(true);
+                        yearRun.setFontSize(10);
+
+                        // Separator
+                        XWPFRun separatorRun = paragraph1.createRun();
+                        separatorRun.setText(" - ");
+                        separatorRun.setFontSize(10);
+
+                        // Member ID part
                         XWPFRun run1 = paragraph1.createRun();
                         run1.setText(cardData.memberId());
                         run1.setFontSize(10);

@@ -16,6 +16,7 @@ public class CardDataConfig {
     private boolean useNewLine;
     private String inputDirectory;
     private String outputDirectory;
+    private String year;
 
     @Getter
     @Setter

@@ -10,10 +10,11 @@ label:
 # CardData Excel column mappings (column names)
 card:
   data:
+    year: "2025"
     splitOddEven: true
     useNewLine: true
-    inputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
-    outputDirectory: "C:/03-resources/Hoge Akkersbloei/output"
+    inputDirectory: "./"
+    outputDirectory: "./labels"
     columns:
       memberId: id
       name: 'naam'
