@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -425,19 +426,29 @@ public class CardLabelGenerator {
     }
 
     private String saveDocument(XWPFDocument document) throws IOException {
-        String userHome = System.getProperty("user.home");
+        String outputDirectory = cardDataConfig.getOutputDirectory();
         String timestamp = LocalDateTime.now().format(FILENAME_FORMATTER);
         String filename = String.format("generated_labels_%s.docx", timestamp);
-        Path downloadsPath = Paths.get(userHome, "Downloads", filename);
 
-        log.info("Saving document to: {}", downloadsPath);
+        // Use configured output directory, or fallback to user's Downloads
+        Path outputPath;
+        if (outputDirectory != null && !outputDirectory.isEmpty()) {
+            outputPath = Paths.get(outputDirectory, filename);
+            // Create directory if it doesn't exist
+            Files.createDirectories(outputPath.getParent());
+        } else {
+            String userHome = System.getProperty("user.home");
+            outputPath = Paths.get(userHome, "Downloads", filename);
+        }
 
-        try (FileOutputStream out = new FileOutputStream(downloadsPath.toFile())) {
+        log.info("Saving document to: {}", outputPath);
+
+        try (FileOutputStream out = new FileOutputStream(outputPath.toFile())) {
             document.write(out);
         } finally {
             document.close();
         }
 
-        return downloadsPath.toString();
+        return outputPath.toString();
     }
 }

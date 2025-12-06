@@ -15,6 +15,7 @@ public class CardDataConfig {
     private boolean splitOddEven;
     private boolean useNewLine;
     private String inputDirectory;
+    private String outputDirectory;
 
     @Getter
     @Setter

@@ -6,7 +6,12 @@
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
       "Bash(./mvnw spring-boot:run:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(./mvnw clean:*)",
+      "Bash(ls:*)",
+      "Bash(unzip:*)",
+      "Bash(jar tf:*)",
+      "Bash(jar xf:*)"
     ],
     "deny": [],
     "ask": []
