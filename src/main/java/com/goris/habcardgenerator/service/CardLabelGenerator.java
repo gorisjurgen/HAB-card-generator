@@ -375,8 +375,9 @@ public class CardLabelGenerator {
                         }
                         CTTabStop tabStop = paragraph1.getCTP().getPPr().getTabs().addNewTab();
                         tabStop.setVal(STTabJc.RIGHT);
-                        // Set tab position to right edge (approximation in twips, adjust as needed)
-                        tabStop.setPos(java.math.BigInteger.valueOf(4000));
+                        // Set tab position to right edge (in twips - 1440 twips = 1 inch, 567 twips = 1 cm)
+                        // Adjusted 1 cm to the right: 2800 + 567 = 3367 twips
+                        tabStop.setPos(java.math.BigInteger.valueOf(3367));
 
                         // Line 2: Name (bold and larger font, reduce size if too long)
                         XWPFParagraph paragraph2 = cell.addParagraph();
