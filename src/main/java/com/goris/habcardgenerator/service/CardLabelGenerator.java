@@ -1,5 +1,6 @@
 package com.goris.habcardgenerator.service;
 
+import com.goris.habcardgenerator.model.CardData;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
 import org.apache.xmlbeans.XmlCursor;
@@ -31,9 +32,9 @@ public class CardLabelGenerator {
 
     private List<XWPFTable> allTables = new ArrayList<>();
 
-    public void generateCardLabels(List<String> labelTexts) {
+    public void generateCardLabels(List<CardData> cardDataList) {
         try {
-            log.info("Starting card label generation with {} labels...", labelTexts.size());
+            log.info("Starting card label generation with {} labels...", cardDataList.size());
 
             allTables.clear(); // Reset tables list
 
@@ -45,15 +46,15 @@ public class CardLabelGenerator {
             allTables.add(document.getTables().get(0));
 
             // Calculate how many pages we need
-            int pagesNeeded = (int) Math.ceil((double) labelTexts.size() / LABELS_PER_PAGE);
-            log.info("Pages needed for {} labels: {}", labelTexts.size(), pagesNeeded);
+            int pagesNeeded = (int) Math.ceil((double) cardDataList.size() / LABELS_PER_PAGE);
+            log.info("Pages needed for {} labels: {}", cardDataList.size(), pagesNeeded);
 
             // Duplicate pages if we need more than one
             if (pagesNeeded > 1) {
                 duplicatePages(document, pagesNeeded);
             }
 
-            populateLabels(labelTexts);
+            populateLabels(cardDataList);
 
             // Remove any trailing paragraphs after the last table to avoid empty pages
             removeTrailingContent(document);
@@ -221,7 +222,7 @@ public class CardLabelGenerator {
         log.info("=== Successfully created {} pages with {} tables ===", totalPages, allTables.size());
     }
 
-    private void populateLabels(List<String> labelTexts) {
+    private void populateLabels(List<CardData> cardDataList) {
         log.info("=== Populating Labels ===");
 
         int labelIndex = 0;
@@ -242,11 +243,11 @@ public class CardLabelGenerator {
                 for (int cellIndex : labelCellIndices) {
                     XWPFTableCell cell = row.getCell(cellIndex);
 
-                    // Use text from input list if available, otherwise leave empty
-                    String labelText = labelIndex < labelTexts.size() ? labelTexts.get(labelIndex) : "";
+                    // Use card data if available, otherwise leave empty
+                    CardData cardData = labelIndex < cardDataList.size() ? cardDataList.get(labelIndex) : null;
 
-                    // Apply background color only if the label has text
-                    if (!labelText.isEmpty()) {
+                    // Apply background color only if we have card data
+                    if (cardData != null) {
                         applyBackgroundColor(cell);
                     }
 
@@ -255,20 +256,42 @@ public class CardLabelGenerator {
                         cell.removeParagraph(0);
                     }
 
-                    // Add new paragraph with label text
-                    XWPFParagraph paragraph = cell.addParagraph();
-                    XWPFRun run = paragraph.createRun();
-                    run.setText(labelText);
+                    // Add card data to cell
+                    if (cardData != null) {
+                        // Line 1: Member ID
+                        XWPFParagraph paragraph1 = cell.addParagraph();
+                        XWPFRun run1 = paragraph1.createRun();
+                        run1.setText(cardData.memberId());
+                        run1.setFontSize(10);
 
-                    if (labelIndex < labelTexts.size()) {
-                        log.debug("Added text '{}' to table {}, cell [{}, {}]", labelText, tableIndex + 1, rowIndex, cellIndex);
+                        // Line 2: Name (bold and larger font, reduce size if too long)
+                        XWPFParagraph paragraph2 = cell.addParagraph();
+                        XWPFRun run2 = paragraph2.createRun();
+                        run2.setText(cardData.name());
+                        run2.setBold(true);
+                        // If name is longer than 25 characters, use same font size as street
+                        int nameFontSize = cardData.name().length() > 25 ? 12 : 14;
+                        run2.setFontSize(nameFontSize);
+
+                        // Line 3: Street and street number (medium font)
+                        XWPFParagraph paragraph3 = cell.addParagraph();
+                        XWPFRun run3 = paragraph3.createRun();
+                        run3.setText(cardData.street() + " " + cardData.streetNumber());
+                        run3.setFontSize(12);
+
+                        log.debug("Added card data for member {} to table {}, cell [{}, {}]",
+                                cardData.memberId(), tableIndex + 1, rowIndex, cellIndex);
+                    } else {
+                        // Add empty paragraph to maintain structure
+                        cell.addParagraph();
                     }
+
                     labelIndex++;
                 }
             }
         }
 
-        log.info("=== Successfully populated {} labels across {} pages ===", Math.min(labelIndex, labelTexts.size()), tableCount);
+        log.info("=== Successfully populated {} labels across {} pages ===", Math.min(labelIndex, cardDataList.size()), tableCount);
     }
 
     private void applyBackgroundColor(XWPFTableCell cell) {

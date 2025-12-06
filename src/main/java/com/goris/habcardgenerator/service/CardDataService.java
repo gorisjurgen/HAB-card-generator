@@ -99,11 +99,16 @@ public class CardDataService {
             return "";
         }
 
-        return switch (cell.getCellType()) {
+        // For formula cells, get the cached/evaluated value instead of the formula text
+        CellType cellType = cell.getCellType();
+        if (cellType == CellType.FORMULA) {
+            cellType = cell.getCachedFormulaResultType();
+        }
+
+        return switch (cellType) {
             case STRING -> cell.getStringCellValue();
             case NUMERIC -> String.valueOf((int) cell.getNumericCellValue());
             case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
-            case FORMULA -> cell.getCellFormula();
             default -> "";
         };
     }

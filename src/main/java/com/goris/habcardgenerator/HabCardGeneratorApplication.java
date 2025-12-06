@@ -25,6 +25,9 @@ public class HabCardGeneratorApplication implements CommandLineRunner {
     public void run(String... args) {
         // Import card data from Excel
         List<CardData> cardDataList = cardDataService.importCardData();
+
+        // Generate labels from card data
+        cardLabelGenerator.generateCardLabels(cardDataList);
     }
 
 }

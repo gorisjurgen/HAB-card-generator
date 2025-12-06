@@ -10,10 +10,10 @@ label:
 # CardData Excel column mappings (column names)
 card:
   data:
-    splitOddEven: true
+    splitOddEven: false
     useNewLine: false
     columns:
       memberId: id
-      name: Name
+      name: 'naam'
       street: 'street '
       streetNumber: street number
