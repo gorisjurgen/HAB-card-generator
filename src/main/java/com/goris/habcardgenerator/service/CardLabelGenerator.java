@@ -345,24 +345,38 @@ public class CardLabelGenerator {
                         int nameFontSize = cardData.name().length() > 25 ? 12 : 14;
                         int yearFontSize = nameFontSize + 2; // Year slightly bigger than name
 
-                        // Line 1: Year (bold) - Member ID
+                        // Line 1: Year (left aligned) and Member ID (right aligned)
                         XWPFParagraph paragraph1 = cell.addParagraph();
 
-                        // Year part (bold, slightly bigger than name)
+                        // Set paragraph alignment to distribute space between left and right
+                        paragraph1.setAlignment(ParagraphAlignment.BOTH);
+
+                        // Year part (bold, slightly bigger than name, left aligned)
                         XWPFRun yearRun = paragraph1.createRun();
                         yearRun.setText(cardDataConfig.getYear());
                         yearRun.setBold(true);
                         yearRun.setFontSize(yearFontSize);
 
-                        // Separator
-                        XWPFRun separatorRun = paragraph1.createRun();
-                        separatorRun.setText(" - ");
-                        separatorRun.setFontSize(10);
+                        // Add tab to push member ID to the right
+                        XWPFRun tabRun = paragraph1.createRun();
+                        tabRun.addTab();
 
-                        // Member ID part
+                        // Member ID part (right aligned)
                         XWPFRun run1 = paragraph1.createRun();
                         run1.setText(cardData.memberId());
                         run1.setFontSize(10);
+
+                        // Add right-aligned tab stop at the end of the cell
+                        if (paragraph1.getCTP().getPPr() == null) {
+                            paragraph1.getCTP().addNewPPr();
+                        }
+                        if (paragraph1.getCTP().getPPr().getTabs() == null) {
+                            paragraph1.getCTP().getPPr().addNewTabs();
+                        }
+                        CTTabStop tabStop = paragraph1.getCTP().getPPr().getTabs().addNewTab();
+                        tabStop.setVal(STTabJc.RIGHT);
+                        // Set tab position to right edge (approximation in twips, adjust as needed)
+                        tabStop.setPos(java.math.BigInteger.valueOf(4000));
 
                         // Line 2: Name (bold and larger font, reduce size if too long)
                         XWPFParagraph paragraph2 = cell.addParagraph();
