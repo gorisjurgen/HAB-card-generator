@@ -371,11 +371,29 @@ public class CardLabelGenerator {
                         run2.setBold(true);
                         run2.setFontSize(nameFontSize);
 
+                        // Reduce spacing after name paragraph
+                        if (paragraph2.getCTP().getPPr() == null) {
+                            paragraph2.getCTP().addNewPPr();
+                        }
+                        if (paragraph2.getCTP().getPPr().getSpacing() == null) {
+                            paragraph2.getCTP().getPPr().addNewSpacing();
+                        }
+                        paragraph2.getCTP().getPPr().getSpacing().setAfter(0);
+
                         // Line 3: Street and street number (medium font)
                         XWPFParagraph paragraph3 = cell.addParagraph();
                         XWPFRun run3 = paragraph3.createRun();
                         run3.setText(cardData.street() + " " + cardData.streetNumber());
                         run3.setFontSize(12);
+
+                        // Reduce spacing before street paragraph
+                        if (paragraph3.getCTP().getPPr() == null) {
+                            paragraph3.getCTP().addNewPPr();
+                        }
+                        if (paragraph3.getCTP().getPPr().getSpacing() == null) {
+                            paragraph3.getCTP().getPPr().addNewSpacing();
+                        }
+                        paragraph3.getCTP().getPPr().getSpacing().setBefore(0);
 
                         log.debug("Added card data for member {} to table {}, cell [{}, {}]",
                                 cardData.memberId(), tableIndex + 1, rowIndex, cellIndex);
