@@ -12,6 +12,7 @@ card:
   data:
     splitOddEven: true
     useNewLine: true
+    inputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     columns:
       memberId: id
       name: 'naam'

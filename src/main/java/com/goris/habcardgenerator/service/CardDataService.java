@@ -8,61 +8,111 @@ import org.apache.poi.ss.usermodel.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class CardDataService {
 
-    private static final String EXCEL_FILE_PATH = "test-data-HAB.xlsx";
     private final CardDataConfig cardDataConfig;
 
     public List<CardData> importCardData() {
-        log.info("Importing card data from: {}", EXCEL_FILE_PATH);
+        String inputDirectory = cardDataConfig.getInputDirectory();
+        log.info("Importing card data from directory: {}", inputDirectory);
+
+        List<CardData> allCardData = new ArrayList<>();
 
         try {
-            ClassPathResource resource = new ClassPathResource(EXCEL_FILE_PATH);
-            try (InputStream inputStream = resource.getInputStream();
-                 Workbook workbook = WorkbookFactory.create(inputStream)) {
+            // Find all Excel files in the directory
+            List<Path> excelFiles = findExcelFiles(inputDirectory);
+            log.info("Found {} Excel file(s) in directory", excelFiles.size());
 
-                Sheet sheet = workbook.getSheetAt(0);
-                log.info("Reading from sheet: {}", sheet.getSheetName());
-
-                // Read header row to map column names to indices
-                Row headerRow = sheet.getRow(0);
-                Map<String, Integer> columnMap = buildColumnMap(headerRow);
-
-                // Read data rows
-                List<CardData> cardDataList = new ArrayList<>();
-                for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                    Row row = sheet.getRow(i);
-                    if (row != null) {
-                        CardData cardData = readCardDataFromRow(row, columnMap);
-                        cardDataList.add(cardData);
-                    }
-                }
-
-                // Sort the data
-                cardDataList = sortCardData(cardDataList);
-
-                log.info("Successfully imported and sorted {} card data records", cardDataList.size());
-
-                // Print sorted data
-                log.info("=== Sorted Card Data ===");
-                for (CardData cardData : cardDataList) {
-                    log.info("{}", cardData);
-                }
-
-                return cardDataList;
+            // Process each Excel file
+            for (Path excelFile : excelFiles) {
+                log.info("Processing file: {}", excelFile.getFileName());
+                List<CardData> fileData = readExcelFile(excelFile);
+                allCardData.addAll(fileData);
             }
+
+            // Sort the combined data
+            allCardData = sortCardData(allCardData);
+
+            log.info("Successfully imported and sorted {} card data records from {} file(s)",
+                     allCardData.size(), excelFiles.size());
+
+            // Print sorted data
+            log.info("=== Sorted Card Data ===");
+            for (CardData cardData : allCardData) {
+                log.info("{}", cardData);
+            }
+
+            return allCardData;
         } catch (IOException e) {
-            log.error("Error reading Excel file", e);
+            log.error("Error reading Excel files", e);
             throw new RuntimeException("Failed to import card data", e);
         }
+    }
+
+    private List<Path> findExcelFiles(String directory) throws IOException {
+        Path dirPath = Paths.get(directory);
+
+        if (!Files.exists(dirPath)) {
+            log.error("Directory does not exist: {}", directory);
+            throw new RuntimeException("Input directory does not exist: " + directory);
+        }
+
+        if (!Files.isDirectory(dirPath)) {
+            log.error("Path is not a directory: {}", directory);
+            throw new RuntimeException("Input path is not a directory: " + directory);
+        }
+
+        try (Stream<Path> paths = Files.walk(dirPath, 1)) {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> {
+                        String fileName = path.getFileName().toString().toLowerCase();
+                        return fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
+                    })
+                    .collect(Collectors.toList());
+        }
+    }
+
+    private List<CardData> readExcelFile(Path filePath) throws IOException {
+        List<CardData> cardDataList = new ArrayList<>();
+
+        try (InputStream inputStream = new FileInputStream(filePath.toFile());
+             Workbook workbook = WorkbookFactory.create(inputStream)) {
+
+            Sheet sheet = workbook.getSheetAt(0);
+            log.info("  Reading from sheet: {}", sheet.getSheetName());
+
+            // Read header row to map column names to indices
+            Row headerRow = sheet.getRow(0);
+            Map<String, Integer> columnMap = buildColumnMap(headerRow);
+
+            // Read data rows
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row != null) {
+                    CardData cardData = readCardDataFromRow(row, columnMap);
+                    cardDataList.add(cardData);
+                }
+            }
+
+            log.info("  Imported {} records from {}", cardDataList.size(), filePath.getFileName());
+        }
+
+        return cardDataList;
     }
 
     private Map<String, Integer> buildColumnMap(Row headerRow) {
