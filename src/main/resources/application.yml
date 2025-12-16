@@ -13,6 +13,7 @@ card:
     year: "2025"
     splitOddEven: true
     useNewLine: true
+    smallStreetsLast: false
     inputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     outputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     columns:

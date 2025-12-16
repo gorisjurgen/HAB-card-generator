@@ -14,6 +14,7 @@ public class CardDataConfig {
     private Columns columns;
     private boolean splitOddEven;
     private boolean useNewLine;
+    private boolean smallStreetsLast;
     private String inputDirectory;
     private String outputDirectory;
     private String year;

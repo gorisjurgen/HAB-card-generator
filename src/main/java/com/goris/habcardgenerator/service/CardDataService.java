@@ -165,26 +165,54 @@ public class CardDataService {
     }
 
     private List<CardData> sortCardData(List<CardData> cardDataList) {
-        if (cardDataConfig.isSplitOddEven()) {
+        Comparator<CardData> comparator;
+
+        if (cardDataConfig.isSmallStreetsLast()) {
+            log.info("Sorting with smallStreetsLast enabled: street size (descending), then street name, then street number");
+
+            // Count members per street
+            Map<String, Long> streetCounts = cardDataList.stream()
+                    .collect(Collectors.groupingBy(CardData::street, Collectors.counting()));
+
+            log.info("Street member counts: {}", streetCounts);
+
+            // Sort by street size (largest first), then by street name, then by street number
+            comparator = Comparator
+                    .<CardData>comparingLong(cardData -> -streetCounts.get(cardData.street())) // Negative for descending
+                    .thenComparing(CardData::street)
+                    .thenComparing(cardData -> parseStreetNumber(cardData.streetNumber()));
+
+            if (cardDataConfig.isSplitOddEven()) {
+                log.info("  Also splitting odd/even within each street");
+                comparator = Comparator
+                        .<CardData>comparingLong(cardData -> -streetCounts.get(cardData.street()))
+                        .thenComparing(CardData::street)
+                        .thenComparing(cardData -> {
+                            int number = parseStreetNumber(cardData.streetNumber());
+                            return number % 2; // 0 for even, 1 for odd
+                        })
+                        .thenComparing(cardData -> parseStreetNumber(cardData.streetNumber()));
+            }
+        } else if (cardDataConfig.isSplitOddEven()) {
             log.info("Sorting with splitOddEven enabled: street, then even numbers first, then odd numbers");
-            return cardDataList.stream()
-                    .sorted(Comparator
-                            .comparing(CardData::street)
-                            .thenComparing(cardData -> {
-                                // Parse street number to determine if even or odd
-                                int number = parseStreetNumber(cardData.streetNumber());
-                                return number % 2; // 0 for even, 1 for odd
-                            })
-                            .thenComparing(cardData -> parseStreetNumber(cardData.streetNumber())))
-                    .collect(Collectors.toList());
+            comparator = Comparator
+                    .comparing(CardData::street)
+                    .thenComparing(cardData -> {
+                        // Parse street number to determine if even or odd
+                        int number = parseStreetNumber(cardData.streetNumber());
+                        return number % 2; // 0 for even, 1 for odd
+                    })
+                    .thenComparing(cardData -> parseStreetNumber(cardData.streetNumber()));
         } else {
             log.info("Sorting by street and street number");
-            return cardDataList.stream()
-                    .sorted(Comparator
-                            .comparing(CardData::street)
-                            .thenComparing(cardData -> parseStreetNumber(cardData.streetNumber())))
-                    .collect(Collectors.toList());
+            comparator = Comparator
+                    .comparing(CardData::street)
+                    .thenComparing(cardData -> parseStreetNumber(cardData.streetNumber()));
         }
+
+        return cardDataList.stream()
+                .sorted(comparator)
+                .collect(Collectors.toList());
     }
 
     private int parseStreetNumber(String streetNumber) {
