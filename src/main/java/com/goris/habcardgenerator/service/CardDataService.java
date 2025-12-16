@@ -135,8 +135,9 @@ public class CardDataService {
         String name = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getName()));
         String street = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getStreet()));
         String streetNumber = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getStreetNumber()));
+        String bus = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getBus()));
 
-        return new CardData(memberId, name, street, streetNumber);
+        return new CardData(memberId, name, street, streetNumber, bus);
     }
 
     private String getCellValueAsString(Row row, Integer columnIndex) {

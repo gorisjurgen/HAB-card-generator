@@ -329,11 +329,6 @@ public class CardLabelGenerator {
                     // Use card data if available, otherwise leave empty
                     CardData cardData = labelIndex < cardDataList.size() ? cardDataList.get(labelIndex) : null;
 
-                    // Apply background color only if we have card data
-                    if (cardData != null) {
-                        applyBackgroundColor(cell);
-                    }
-
                     // Clear existing content
                     while (cell.getParagraphs().size() > 0) {
                         cell.removeParagraph(0);
@@ -350,6 +345,9 @@ public class CardLabelGenerator {
 
                         // Set paragraph alignment to distribute space between left and right
                         paragraph1.setAlignment(ParagraphAlignment.BOTH);
+
+                        // Apply background color only to this paragraph (top strip)
+                        applyParagraphBackgroundColor(paragraph1);
 
                         // Year part (bold, slightly bigger than name, left aligned)
                         XWPFRun yearRun = paragraph1.createRun();
@@ -379,8 +377,9 @@ public class CardLabelGenerator {
                         // Adjusted 1 cm to the right: 2800 + 567 = 3367 twips
                         tabStop.setPos(java.math.BigInteger.valueOf(3367));
 
-                        // Line 2: Name (bold and larger font, reduce size if too long)
+                        // Line 2: Name (bold and larger font, reduce size if too long, centered)
                         XWPFParagraph paragraph2 = cell.addParagraph();
+                        paragraph2.setAlignment(ParagraphAlignment.CENTER);
                         XWPFRun run2 = paragraph2.createRun();
                         run2.setText(cardData.name());
                         run2.setBold(true);
@@ -395,10 +394,15 @@ public class CardLabelGenerator {
                         }
                         paragraph2.getCTP().getPPr().getSpacing().setAfter(0);
 
-                        // Line 3: Street and street number (medium font)
+                        // Line 3: Street and street number (medium font, centered)
                         XWPFParagraph paragraph3 = cell.addParagraph();
+                        paragraph3.setAlignment(ParagraphAlignment.CENTER);
                         XWPFRun run3 = paragraph3.createRun();
-                        run3.setText(cardData.street() + " " + cardData.streetNumber());
+                        String addressLine = cardData.street() + " " + cardData.streetNumber();
+                        if (cardData.bus() != null && !cardData.bus().isEmpty()) {
+                            addressLine += " " + cardData.bus();
+                        }
+                        run3.setText(addressLine);
                         run3.setFontSize(12);
 
                         // Reduce spacing before street paragraph
@@ -425,16 +429,16 @@ public class CardLabelGenerator {
         log.info("=== Successfully populated {} labels across {} pages ===", Math.min(labelIndex, cardDataList.size()), tableCount);
     }
 
-    private void applyBackgroundColor(XWPFTableCell cell) {
-        // Ensure cell properties exist
-        if (cell.getCTTc().getTcPr() == null) {
-            cell.getCTTc().addNewTcPr();
+    private void applyParagraphBackgroundColor(XWPFParagraph paragraph) {
+        // Ensure paragraph properties exist
+        if (paragraph.getCTP().getPPr() == null) {
+            paragraph.getCTP().addNewPPr();
         }
 
-        // Add shading (background color)
-        CTShd shd = cell.getCTTc().getTcPr().getShd();
+        // Add shading (background color) to the paragraph
+        CTShd shd = paragraph.getCTP().getPPr().getShd();
         if (shd == null) {
-            shd = cell.getCTTc().getTcPr().addNewShd();
+            shd = paragraph.getCTP().getPPr().addNewShd();
         }
 
         // Set the background color using the hex value from properties

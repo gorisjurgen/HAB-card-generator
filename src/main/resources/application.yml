@@ -16,7 +16,8 @@ card:
     inputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     outputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     columns:
-      memberId: id
+      memberId: 'Lidnummer *'
       name: 'naam'
-      street: 'street '
-      streetNumber: street number
+      street: 'straat'
+      streetNumber: 'number'
+      bus: 'bus'

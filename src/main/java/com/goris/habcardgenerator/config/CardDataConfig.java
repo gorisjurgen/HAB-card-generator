@@ -25,5 +25,6 @@ public class CardDataConfig {
         private String name;
         private String street;
         private String streetNumber;
+        private String bus;
     }
 }
