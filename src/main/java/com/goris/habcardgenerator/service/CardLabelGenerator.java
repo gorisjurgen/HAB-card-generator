@@ -81,6 +81,10 @@ public class CardLabelGenerator {
             // Remove any trailing paragraphs after the last table to avoid empty pages
             removeTrailingContent(document);
 
+            // Word always renders a paragraph mark after a trailing table; make it small
+            // enough to fit in the space left below the table, or it spills onto an empty page
+            addMinimalFinalParagraph(document);
+
             String outputPath = saveDocument(document);
 
             log.info("Card labels generated successfully at: {}", outputPath);
@@ -512,6 +516,21 @@ public class CardLabelGenerator {
         }
 
         log.info("Total body elements after cleanup: {}", document.getBodyElements().size());
+    }
+
+    private void addMinimalFinalParagraph(XWPFDocument document) {
+        XWPFParagraph paragraph = document.createParagraph();
+        CTPPr pPr = paragraph.getCTP().isSetPPr() ? paragraph.getCTP().getPPr() : paragraph.getCTP().addNewPPr();
+
+        CTSpacing spacing = pPr.isSetSpacing() ? pPr.getSpacing() : pPr.addNewSpacing();
+        spacing.setBefore(java.math.BigInteger.ZERO);
+        spacing.setAfter(java.math.BigInteger.ZERO);
+        spacing.setLineRule(STLineSpacingRule.EXACT);
+        spacing.setLine(java.math.BigInteger.valueOf(10));
+
+        CTParaRPr rPr = pPr.isSetRPr() ? pPr.getRPr() : pPr.addNewRPr();
+        rPr.addNewSz().setVal(java.math.BigInteger.valueOf(2)); // 1pt paragraph mark
+        rPr.addNewVanish();
     }
 
     private String saveDocument(XWPFDocument document) throws IOException {
