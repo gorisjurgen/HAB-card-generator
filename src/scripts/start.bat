@@ -18,8 +18,12 @@ if not defined JAR_FILE (
 REM Set the config directory
 set "CONFIG_DIR=%APP_HOME%\config"
 
+REM Number of label positions to skip on the first page (default 0)
+set "SKIP_LABELS=%~1"
+if not defined SKIP_LABELS set "SKIP_LABELS=0"
+
 REM Run the application with external config
-echo Starting HAB Card Generator...
-java -jar "%JAR_FILE%" --spring.config.location="file:%CONFIG_DIR%/application.yml"
+echo Starting HAB Card Generator (skipping %SKIP_LABELS% labels)...
+java -jar "%JAR_FILE%" --spring.config.location="file:%CONFIG_DIR%/application.yml" %SKIP_LABELS%
 
 endlocal

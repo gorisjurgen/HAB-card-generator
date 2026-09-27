@@ -21,6 +21,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -38,9 +40,10 @@ public class CardLabelGenerator {
     private final CardDataConfig cardDataConfig;
     private List<XWPFTable> allTables = new ArrayList<>();
 
-    public void generateCardLabels(List<CardData> cardDataList) {
+    public void generateCardLabels(List<CardData> cardDataList, int labelsToSkip) {
         try {
-            log.info("Starting card label generation with {} labels...", cardDataList.size());
+            log.info("Starting card label generation with {} labels, skipping {} used label positions...",
+                    cardDataList.size(), labelsToSkip);
 
             allTables.clear(); // Reset tables list
 
@@ -53,6 +56,16 @@ public class CardLabelGenerator {
 
             // Add empty labels when street changes if useNewLine is enabled
             List<CardData> adjustedCardDataList = addEmptyLabelsForStreetChanges(cardDataList);
+
+            // Skip already-used label positions on the first page
+            if (labelsToSkip > 0) {
+                List<CardData> withSkippedLabels = new ArrayList<>();
+                for (int i = 0; i < labelsToSkip; i++) {
+                    withSkippedLabels.add(null);
+                }
+                withSkippedLabels.addAll(adjustedCardDataList);
+                adjustedCardDataList = withSkippedLabels;
+            }
 
             // Calculate how many pages we need
             int pagesNeeded = (int) Math.ceil((double) adjustedCardDataList.size() / LABELS_PER_PAGE);
@@ -150,7 +163,16 @@ public class CardLabelGenerator {
         }
 
         boolean splitOddEven = cardDataConfig.isSplitOddEven();
-        log.info("=== Adding empty labels for street changes (splitOddEven: {}) ===", splitOddEven);
+        boolean smallStreetsLast = cardDataConfig.isSmallStreetsLast();
+        log.info("=== Adding empty labels for street changes (splitOddEven: {}, smallStreetsLast: {}) ===", splitOddEven, smallStreetsLast);
+
+        // Count members per street if smallStreetsLast is enabled
+        Map<String, Long> streetCounts = null;
+        if (smallStreetsLast) {
+            streetCounts = cardDataList.stream()
+                    .collect(Collectors.groupingBy(CardData::street, Collectors.counting()));
+            log.info("Street member counts for empty label logic: {}", streetCounts);
+        }
 
         List<CardData> adjustedList = new ArrayList<>();
         String previousStreet = null;
@@ -177,16 +199,31 @@ public class CardLabelGenerator {
             }
 
             if (needsNewRow) {
-                // Add empty labels to complete the current row
-                int emptyLabelsNeeded = (LABELS_PER_ROW - labelsInCurrentRow % LABELS_PER_ROW) % LABELS_PER_ROW;
-
-                if (emptyLabelsNeeded > 0) {
-                    log.info("{}, adding {} empty labels to complete row", reason, emptyLabelsNeeded);
-
-                    for (int i = 0; i < emptyLabelsNeeded; i++) {
-                        adjustedList.add(null); // null represents an empty label
+                // Check if we should skip adding empty labels for small streets
+                boolean skipEmptyLabels = false;
+                if (smallStreetsLast && previousStreet != null && streetCounts != null) {
+                    long previousStreetSize = streetCounts.getOrDefault(previousStreet, 0L);
+                    if (previousStreetSize < 4) {
+                        skipEmptyLabels = true;
+                        log.info("Skipping empty labels for small street '{}' with {} members", previousStreet, previousStreetSize);
                     }
-                    labelsInCurrentRow = 0;
+                }
+
+                if (!skipEmptyLabels) {
+                    // Add empty labels to complete the current row
+                    int emptyLabelsNeeded = (LABELS_PER_ROW - labelsInCurrentRow % LABELS_PER_ROW) % LABELS_PER_ROW;
+
+                    if (emptyLabelsNeeded > 0) {
+                        log.info("{}, adding {} empty labels to complete row", reason, emptyLabelsNeeded);
+
+                        for (int i = 0; i < emptyLabelsNeeded; i++) {
+                            adjustedList.add(null); // null represents an empty label
+                        }
+                        labelsInCurrentRow = 0;
+                    }
+                } else {
+                    // Don't reset row counter, continue on same row
+                    log.info("{}, but continuing on same row (small street)", reason);
                 }
             }
 
@@ -374,8 +411,8 @@ public class CardLabelGenerator {
                         CTTabStop tabStop = paragraph1.getCTP().getPPr().getTabs().addNewTab();
                         tabStop.setVal(STTabJc.RIGHT);
                         // Set tab position to right edge (in twips - 1440 twips = 1 inch, 567 twips = 1 cm)
-                        // Adjusted 1 cm to the right: 2800 + 567 = 3367 twips
-                        tabStop.setPos(java.math.BigInteger.valueOf(3367));
+                        // Adjusted 0.5 cm to the left from previous position: 3367 - 280 = 3087 twips
+                        tabStop.setPos(java.math.BigInteger.valueOf(3087));
 
                         // Line 2: Name (bold and larger font, reduce size if too long, centered)
                         XWPFParagraph paragraph2 = cell.addParagraph();

@@ -23,11 +23,22 @@ public class HabCardGeneratorApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        int labelsToSkip = parseLabelsToSkip(args);
+
         // Import card data from Excel
         List<CardData> cardDataList = cardDataService.importCardData();
 
         // Generate labels from card data
-        cardLabelGenerator.generateCardLabels(cardDataList);
+        cardLabelGenerator.generateCardLabels(cardDataList, labelsToSkip);
+    }
+
+    private int parseLabelsToSkip(String... args) {
+        for (String arg : args) {
+            if (!arg.startsWith("--")) {
+                return Integer.parseInt(arg);
+            }
+        }
+        return 0;
     }
 
 }
