@@ -174,6 +174,9 @@ public class CardDataService {
     private CardData readCardDataFromRow(Row row, ColumnIndexes columns) {
         String memberId = AddressParser.normalizeWhitespace(getCellValueAsString(row, columns.memberId()));
         String name = AddressParser.normalizeWhitespace(getCellValueAsString(row, columns.name()));
+        if (cardDataConfig.isTitleCaseUpperCaseNames()) {
+            name = NameFormatter.titleCaseIfUpperCase(name);
+        }
         String rawAddress = getCellValueAsString(row, columns.address());
 
         if (memberId.isEmpty() && name.isEmpty() && rawAddress.isBlank()) {

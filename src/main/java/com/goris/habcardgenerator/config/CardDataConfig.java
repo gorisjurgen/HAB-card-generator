@@ -15,6 +15,8 @@ public class CardDataConfig {
     private boolean splitOddEven;
     private boolean useNewLine;
     private boolean smallStreetsLast;
+    /** Convert names that are entirely upper case ("JAN KERREMANS") to title case ("Jan Kerremans"). */
+    private boolean titleCaseUpperCaseNames = true;
     private String inputDirectory;
     private String outputDirectory;
     private String year;

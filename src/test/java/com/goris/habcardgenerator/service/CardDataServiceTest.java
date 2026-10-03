@@ -76,6 +76,21 @@ class CardDataServiceTest {
     }
 
     @Test
+    void convertsUpperCaseNamesToTitleCaseWhenEnabled() throws IOException {
+        writeWorkbook("export.xlsx", EXPORT_HEADER,
+                exportRow("1", "JAN KERREMANS", "Zandstraat 2"),
+                exportRow("2", "Fam. Teunen - De Witte", "Zandstraat 4"));
+
+        assertThat(service(false, false).importCardData()).extracting(CardData::name)
+                .containsExactly("Jan Kerremans", "Fam. Teunen - De Witte");
+
+        CardDataConfig config = config(false, false);
+        config.setTitleCaseUpperCaseNames(false);
+        assertThat(new CardDataService(config).importCardData()).extracting(CardData::name)
+                .containsExactly("JAN KERREMANS", "Fam. Teunen - De Witte");
+    }
+
+    @Test
     void ignoresEmptyTrailingRows() throws IOException {
         writeWorkbook("export.xlsx", EXPORT_HEADER,
                 exportRow("1", "A", "Zandstraat 2"),

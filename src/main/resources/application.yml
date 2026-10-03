@@ -15,6 +15,8 @@ card:
     splitOddEven: true
     useNewLine: true
     smallStreetsLast: false
+    # Convert names written entirely in upper case (JAN KERREMANS) to title case (Jan Kerremans)
+    titleCaseUpperCaseNames: true
     inputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     outputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     columns:
