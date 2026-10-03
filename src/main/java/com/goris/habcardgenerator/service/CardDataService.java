@@ -5,10 +5,8 @@ import com.goris.habcardgenerator.model.CardData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,6 +23,10 @@ import java.util.stream.Stream;
 public class CardDataService {
 
     private final CardDataConfig cardDataConfig;
+
+    /** Zero-based column indexes of the configured columns in a given sheet. */
+    private record ColumnIndexes(int memberId, int name, int address) {
+    }
 
     public List<CardData> importCardData() {
         String inputDirectory = cardDataConfig.getInputDirectory();
@@ -83,6 +85,7 @@ public class CardDataService {
                         String fileName = path.getFileName().toString().toLowerCase();
                         return fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
                     })
+                    .sorted()
                     .collect(Collectors.toList());
         }
     }
@@ -98,14 +101,20 @@ public class CardDataService {
 
             // Read header row to map column names to indices
             Row headerRow = sheet.getRow(0);
+            if (headerRow == null) {
+                throw new IllegalStateException("No header row found in " + filePath.getFileName());
+            }
             Map<String, Integer> columnMap = buildColumnMap(headerRow);
+            ColumnIndexes columns = resolveColumns(columnMap, filePath);
 
             // Read data rows
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row != null) {
-                    CardData cardData = readCardDataFromRow(row, columnMap);
-                    cardDataList.add(cardData);
+                    CardData cardData = readCardDataFromRow(row, columns);
+                    if (cardData != null) {
+                        cardDataList.add(cardData);
+                    }
                 }
             }
 
@@ -116,13 +125,16 @@ public class CardDataService {
     }
 
     private Map<String, Integer> buildColumnMap(Row headerRow) {
-        Map<String, Integer> columnMap = new HashMap<>();
+        Map<String, Integer> columnMap = new LinkedHashMap<>();
+        DataFormatter formatter = new DataFormatter();
 
         for (int i = 0; i < headerRow.getLastCellNum(); i++) {
             Cell cell = headerRow.getCell(i);
             if (cell != null) {
-                String columnName = cell.getStringCellValue();
-                columnMap.put(columnName, i);
+                String columnName = formatter.formatCellValue(cell).trim();
+                if (!columnName.isEmpty()) {
+                    columnMap.putIfAbsent(columnName, i);
+                }
             }
         }
 
@@ -130,21 +142,58 @@ public class CardDataService {
         return columnMap;
     }
 
-    private CardData readCardDataFromRow(Row row, Map<String, Integer> columnMap) {
-        String memberId = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getMemberId()));
-        String name = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getName()));
-        String street = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getStreet()));
-        String streetNumber = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getStreetNumber()));
-        String bus = getCellValueAsString(row, columnMap.get(cardDataConfig.getColumns().getBus()));
-
-        return new CardData(memberId, name, street, streetNumber, bus);
+    /**
+     * Looks up the configured column names in the header. Fails fast when a column is not configured
+     * or not present, so that a wrong configuration does not silently produce empty labels.
+     */
+    private ColumnIndexes resolveColumns(Map<String, Integer> columnMap, Path filePath) {
+        CardDataConfig.Columns configured = cardDataConfig.getColumns();
+        if (configured == null) {
+            throw new IllegalStateException("card.data.columns is not configured");
+        }
+        return new ColumnIndexes(
+                resolveColumn(columnMap, "memberId", configured.getMemberId(), filePath),
+                resolveColumn(columnMap, "name", configured.getName(), filePath),
+                resolveColumn(columnMap, "address", configured.getAddress(), filePath));
     }
 
-    private String getCellValueAsString(Row row, Integer columnIndex) {
-        if (columnIndex == null) {
-            return "";
+    private int resolveColumn(Map<String, Integer> columnMap, String key, String configuredName, Path filePath) {
+        if (configuredName == null || configuredName.isBlank()) {
+            throw new IllegalStateException("card.data.columns." + key + " is not configured");
+        }
+        Integer index = columnMap.get(configuredName.trim());
+        if (index == null) {
+            throw new IllegalStateException("Column '" + configuredName + "' (card.data.columns." + key
+                    + ") not found in header of " + filePath.getFileName()
+                    + ". Available columns: " + columnMap.keySet());
+        }
+        return index;
+    }
+
+    /** Returns {@code null} for rows without any data (e.g. trailing formatted rows in an export). */
+    private CardData readCardDataFromRow(Row row, ColumnIndexes columns) {
+        String memberId = AddressParser.normalizeWhitespace(getCellValueAsString(row, columns.memberId()));
+        String name = AddressParser.normalizeWhitespace(getCellValueAsString(row, columns.name()));
+        if (cardDataConfig.isTitleCaseUpperCaseNames()) {
+            name = NameFormatter.titleCaseIfUpperCase(name);
+        }
+        String rawAddress = getCellValueAsString(row, columns.address());
+
+        if (memberId.isEmpty() && name.isEmpty() && rawAddress.isBlank()) {
+            log.debug("Skipping empty row {}", row.getRowNum() + 1);
+            return null;
         }
 
+        AddressParser.ParsedAddress address = AddressParser.parse(rawAddress);
+        if (!address.hasNumber()) {
+            log.warn("Row {} (member {}): no house number found in address '{}'",
+                     row.getRowNum() + 1, memberId, rawAddress);
+        }
+
+        return new CardData(memberId, name, address.street(), address.streetNumber(), address.bus());
+    }
+
+    private String getCellValueAsString(Row row, int columnIndex) {
         Cell cell = row.getCell(columnIndex);
         if (cell == null) {
             return "";
@@ -164,7 +213,7 @@ public class CardDataService {
         };
     }
 
-    private List<CardData> sortCardData(List<CardData> cardDataList) {
+    List<CardData> sortCardData(List<CardData> cardDataList) {
         Comparator<CardData> comparator;
 
         if (cardDataConfig.isSmallStreetsLast()) {
@@ -215,19 +264,8 @@ public class CardDataService {
                 .collect(Collectors.toList());
     }
 
+    /** Leading number of a house number ("12A" -> 12, "75-77" -> 75); empty values sort last. */
     private int parseStreetNumber(String streetNumber) {
-        if (streetNumber == null || streetNumber.isEmpty()) {
-            return Integer.MAX_VALUE; // Put empty values at the end
-        }
-        try {
-            // Extract numeric part from street number (handles cases like "12A", "12-14", etc.)
-            String numericPart = streetNumber.replaceAll("[^0-9]", "");
-            if (numericPart.isEmpty()) {
-                return Integer.MAX_VALUE;
-            }
-            return Integer.parseInt(numericPart);
-        } catch (NumberFormatException e) {
-            return Integer.MAX_VALUE;
-        }
+        return AddressParser.houseNumberValue(streetNumber);
     }
 }
