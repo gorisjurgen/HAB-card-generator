@@ -7,7 +7,8 @@ label:
   background:
     color: 9fd6e0
 
-# CardData Excel column mappings (column names)
+# Column header names of the Assistonline member export.
+# The address column (street + house number [+ bus] in one cell) is split automatically.
 card:
   data:
     year: "2025"
@@ -17,8 +18,6 @@ card:
     inputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     outputDirectory: "C:/03-resources/Hoge Akkersbloei/members"
     columns:
-      memberId: 'Lidnummer *'
-      name: 'naam'
-      street: 'straat'
-      streetNumber: 'number'
-      bus: 'bus'
+      memberId: 'Lidnr.'
+      name: 'Voornaam + naam'
+      address: 'Adres'

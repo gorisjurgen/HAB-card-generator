@@ -242,20 +242,9 @@ public class CardLabelGenerator {
     }
 
     private boolean isEvenStreetNumber(String streetNumber) {
-        if (streetNumber == null || streetNumber.isEmpty()) {
-            return false;
-        }
-        try {
-            // Extract numeric part from street number
-            String numericPart = streetNumber.replaceAll("[^0-9]", "");
-            if (numericPart.isEmpty()) {
-                return false;
-            }
-            int number = Integer.parseInt(numericPart);
-            return number % 2 == 0;
-        } catch (NumberFormatException e) {
-            return false;
-        }
+        // Same parsing as the sorter, so sorting and empty-label insertion always agree on odd/even
+        int number = AddressParser.houseNumberValue(streetNumber);
+        return number != Integer.MAX_VALUE && number % 2 == 0;
     }
 
     private void duplicatePages(XWPFDocument document, int totalPages) {
@@ -443,7 +432,7 @@ public class CardLabelGenerator {
                         if (cardData.bus() != null && !cardData.bus().isEmpty()) {
                             addressLine += " " + cardData.bus();
                         }
-                        run3.setText(addressLine);
+                        run3.setText(addressLine.trim());
                         run3.setFontSize(12);
 
                         // Reduce spacing before street paragraph
