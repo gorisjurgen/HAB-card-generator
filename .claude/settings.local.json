@@ -11,7 +11,20 @@
       "Bash(ls:*)",
       "Bash(unzip:*)",
       "Bash(jar tf:*)",
-      "Bash(jar xf:*)"
+      "Bash(jar xf:*)",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(\\(Get-ChildItem \"C:/03-resources/Hoge Akkersbloei/members\" -Force | Measure-Object\\).Count; Get-ChildItem \"C:/03-resources/Hoge Akkersbloei/members\" -Force | Select-Object Name)",
+      "PowerShell(Get-ChildItem \"C:/03-resources/Hoge Akkersbloei/members\" -Force | ForEach-Object { $_.Name })",
+      "PowerShell(Get-Content *)",
+      "PowerShell(git *)",
+      "PowerShell(gh api *)",
+      "PowerShell(winget install *)",
+      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
+      "PowerShell(& \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" api -X PATCH repos/gorisjurgen/HAB-card-generator -f default_branch=develop --jq .default_branch)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(git for-each-ref refs/heads --format=\"%\\(refname:short\\)\" | ForEach-Object { $ahead = \\(git rev-list --count \"develop..$_\"\\); \"$_ : $ahead commits not in develop\" })",
+      "PowerShell(.\\\\mvnw.cmd compile -q)",
+      "PowerShell(Out-Null *)"
     ],
     "deny": [],
     "ask": []
